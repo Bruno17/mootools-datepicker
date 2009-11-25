@@ -46,7 +46,9 @@ var DatePicker = new Class({
 	newContents: null, // used in animating from-view to new-view
 	input: null,       // original input element (used for input/output)
 	visual: null,      // visible input (used for rendering)
-	
+	minDate: null, // unformated minDate
+	maxDate: null, // same as minDate
+			
 	options: { 
 		pickerClass: 'datepicker',
 		days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
@@ -83,19 +85,24 @@ var DatePicker = new Class({
 			this.options.timePicker = true;
 			this.options.startView = 'time';
 		}
-		this.formatMinMaxDates();
+		//this.formatMinMaxDates();
 		document.addEvent('mousedown', this.close.bind(this));
 	},
 	
 	formatMinMaxDates: function() {
+		this.options.minDate.date = this.input.get('rangelow')||this.options.minDate.date;
+		this.options.maxDate.date = this.input.get('rangehigh')||this.options.maxDate.date;
 		if (this.options.minDate && this.options.minDate.format) {
-			this.options.minDate = this.unformat(this.options.minDate.date, this.options.minDate.format);
+			this.minDate = this.unformat(this.options.minDate.date, this.options.minDate.format);
+			this.minDate.setHours(00);
+			this.minDate.setMinutes(00);
+			this.minDate.setSeconds(00);			
 		}
 		if (this.options.maxDate && this.options.maxDate.format) {
-			this.options.maxDate = this.unformat(this.options.maxDate.date, this.options.maxDate.format);
-			this.options.maxDate.setHours(23);
-			this.options.maxDate.setMinutes(59);
-			this.options.maxDate.setSeconds(59);
+			this.maxDate = this.unformat(this.options.maxDate.date, this.options.maxDate.format);
+			this.maxDate.setHours(23);
+			this.maxDate.setMinutes(59);
+			this.maxDate.setSeconds(59);
 		}
 	},
 	
@@ -137,6 +144,7 @@ var DatePicker = new Class({
 			.removeProperty('name')    // secure clean (form)submission
 			.setStyle('display', display)
 			.set('value', init_clone_val)
+			.set('id', item.get('id')+'_clone')
 			.inject(item, 'after');
 			
 			// events
@@ -188,10 +196,9 @@ var DatePicker = new Class({
 				init_visual_date = new Date(this.options.minDate.valueOf());
 			}
 		}
-		
-		this.show({ left: d.left + this.options.positionOffset.x, top: d.top + d.height + this.options.positionOffset.y }, init_visual_date);
 		this.input = original_input;
-		this.visual = visual_input;
+		this.visual = visual_input;		
+		this.show({ left: d.left + this.options.positionOffset.x, top: d.top + d.height + this.options.positionOffset.y }, init_visual_date);
 		this.options.onShow();
 	},
 	
@@ -308,8 +315,8 @@ var DatePicker = new Class({
 		
 		var h = new Element('div', { 'class': 'header' }).inject(this.picker);
 		var titlecontainer = new Element('div', { 'class': 'title' }).inject(h);
-		new Element('div', { 'class': 'previous' }).addEvent('click', this.previous.bind(this)).set('text', '«').inject(h);
-		new Element('div', { 'class': 'next' }).addEvent('click', this.next.bind(this)).set('text', '»').inject(h);
+		new Element('div', { 'class': 'previous' }).addEvent('click', this.previous.bind(this)).set('text', 'Â«').inject(h);
+		new Element('div', { 'class': 'next' }).addEvent('click', this.next.bind(this)).set('text', 'Â»').inject(h);
 		new Element('div', { 'class': 'closeButton' }).addEvent('click', this.close.bindWithEvent(this, true)).set('text', 'x').inject(h);
 		new Element('span', { 'class': 'titleText' }).addEvent('click', this.zoomOut.bind(this)).inject(titlecontainer);
 		
@@ -488,7 +495,7 @@ var DatePicker = new Class({
 		var available = false;
 		var container = new Element('div', { 'class': 'years' }).inject(this.newContents);
 		
-		if ($chk(this.options.minDate) && this.d.getFullYear() <= this.options.minDate.getFullYear()) {
+		if ($chk(this.minDate) && this.d.getFullYear() <= this.minDate.getFullYear()) {
 			this.limit.left = true;
 		}
 		
@@ -516,28 +523,28 @@ var DatePicker = new Class({
 		if (!available) {
 			this.limit.right = true;
 		}
-		if ($chk(this.options.maxDate) && this.d.getFullYear() >= this.options.maxDate.getFullYear()) {
+		if ($chk(this.maxDate) && this.d.getFullYear() >= this.maxDate.getFullYear()) {
 			this.limit.right = true;
 		}
 	},
 	
 	limited: function(type) {
-		var cs = $chk(this.options.minDate);
-		var ce = $chk(this.options.maxDate);
+		var cs = $chk(this.minDate);
+		var ce = $chk(this.maxDate);
 		if (!cs && !ce) return false;
 		
 		switch (type) {
 			case 'year':
-				return (cs && this.d.getFullYear() < this.options.minDate.getFullYear()) || (ce && this.d.getFullYear() > this.options.maxDate.getFullYear());
+				return (cs && this.d.getFullYear() < this.minDate.getFullYear()) || (ce && this.d.getFullYear() > this.maxDate.getFullYear());
 				
 			case 'month':
 				// todo: there has got to be an easier way...?
 				var ms = ('' + this.d.getFullYear() + this.leadZero(this.d.getMonth())).toInt();
-				return cs && ms < ('' + this.options.minDate.getFullYear() + this.leadZero(this.options.minDate.getMonth())).toInt()
-					|| ce && ms > ('' + this.options.maxDate.getFullYear() + this.leadZero(this.options.maxDate.getMonth())).toInt()
+				return cs && ms < ('' + this.minDate.getFullYear() + this.leadZero(this.minDate.getMonth())).toInt()
+					|| ce && ms > ('' + this.maxDate.getFullYear() + this.leadZero(this.maxDate.getMonth())).toInt()
 				
 			case 'date':
-				return (cs && this.d < this.options.minDate) || (ce && this.d > this.options.maxDate);
+				return (cs && this.d < this.minDate) || (ce && this.d > this.maxDate);
 		}
 	},
 	
@@ -713,7 +720,7 @@ var DatePicker = new Class({
 				case 'U': d = new Date(v.toInt() * 1000);
 			}
 		};
-		
+
 		return d;
 	}
 });
